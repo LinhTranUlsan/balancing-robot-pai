@@ -1,0 +1,36 @@
+# ---- Python ----
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+build/
+dist/
+.venv/
+venv/
+
+# ---- Isaac Lab / RL training artifacts (regenerated locally) ----
+logs/
+outputs/
+runs/
+**/videos/
+*.log
+
+# ---- PlatformIO / Arduino build ----
+**/.pio/
+*.elf
+*.bin
+
+# ---- Large / local-only files (NEVER commit) ----
+*.pptx
+*.rar
+*.zip
+~$*
+
+# ---- OS / editor ----
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+
+# NOTE: .usd files ARE kept on purpose (robot mesh in assets/TwoWheel/).
+# Do NOT add a *.usd ignore rule here.

@@ -1,0 +1,265 @@
+<?xml version="1.0"?>
+<robot name="TwoWheel">
+
+    <material name="gray">
+        <color rgba="0.8 0.8 0.8 1" />
+    </material>
+
+    <link name="base_link">
+        <inertial>
+            <origin xyz="0 0 0.0" rpy="0 0 0" />
+            <mass value="0.04" />
+            <inertia ixx="0.00005636" ixy="0.0" ixz="0.0" iyy="0.00009636" iyz="0.0" izz="0.000152666" />
+        </inertial>
+        <visual>
+            <geometry><box size="0.170 0.130 0.003" /></geometry>
+            <origin xyz="0 0 0" rpy="0 0 0" />
+            <material name="gray" />
+        </visual>
+        <collision>
+            <geometry><box size="0.170 0.130 0.003" /></geometry>
+            <origin xyz="0 0 0" rpy="0 0 0" />
+        </collision>
+    </link>
+
+    <link name="upper_base_link">
+        <inertial>
+            <origin xyz="0 0 0.0" rpy="0 0 0" />
+            <mass value="0.04" />
+            <inertia ixx="0.00005636" ixy="0.0" ixz="0.0" iyy="0.00009636" iyz="0.0" izz="0.000152666" />
+        </inertial>
+        <visual>
+            <geometry><box size="0.170 0.130 0.003" /></geometry>
+            <origin xyz="0 0 0" rpy="0 0 0" />
+            <material name="gray" />
+        </visual>
+        <collision>
+            <geometry><box size="0.170 0.130 0.003" /></geometry>
+            <origin xyz="0 0 0.0" rpy="0 0 0" />
+        </collision>
+    </link>
+
+    <link name="battery">
+        <inertial>
+            <origin xyz="0 0 0" rpy="0 0 0" />
+            <mass value="0.184" />
+            <inertia ixx="0.000044282" ixy="0.0" ixz="0.0" iyy="0.000099326" iyz="0.0" izz="0.000099326" />
+        </inertial>
+        <visual>
+            <geometry><box size="0.071 0.038 0.038" /></geometry>
+            <origin xyz="0 0 0" rpy="0 0 0" />
+            <material name="gray" />
+        </visual>
+        <collision>
+            <geometry><box size="0.071 0.038 0.038" /></geometry>
+            <origin xyz="0 0 0" rpy="0 0 0" />
+        </collision>
+    </link>
+
+    <link name="bolt1">
+        <inertial>
+            <origin xyz="0 0 0" rpy="0 0 0" />
+            <mass value="0.04" />
+            <inertia ixx="0.00001941" ixy="0.0" ixz="0.0" iyy="0.00001941" iyz="0.0" izz="0.00000032" />
+        </inertial>
+        <visual>
+            <geometry><cylinder radius="0.004" length="0.076" /></geometry>
+            <origin xyz="0 0 0" rpy="0 0 0" />
+            <material name="gray" />
+        </visual>
+        <collision>
+            <geometry><cylinder radius="0.004" length="0.076" /></geometry>
+            <origin xyz="0 0 0" rpy="0 0 0" />
+        </collision>
+    </link>
+
+    <link name="bolt2">
+        <inertial>
+            <origin xyz="0 0 0" rpy="0 0 0" />
+            <mass value="0.04" />
+            <inertia ixx="0.00001941" ixy="0.0" ixz="0.0" iyy="0.00001941" iyz="0.0" izz="0.00000032" />
+        </inertial>
+        <visual>
+            <geometry><cylinder radius="0.004" length="0.076" /></geometry>
+            <origin xyz="0 0 0" rpy="0 0 0" />
+            <material name="gray" />
+        </visual>
+        <collision>
+            <geometry><cylinder radius="0.004" length="0.076" /></geometry>
+            <origin xyz="0 0 0" rpy="0 0 0" />
+        </collision>
+    </link>
+
+    <link name="bolt3">
+        <inertial>
+            <origin xyz="0 0 0" rpy="0 0 0" />
+            <mass value="0.04" />
+            <inertia ixx="0.00001941" ixy="0.0" ixz="0.0" iyy="0.00001941" iyz="0.0" izz="0.00000032" />
+        </inertial>
+        <visual>
+            <geometry><cylinder radius="0.004" length="0.076" /></geometry>
+            <origin xyz="0 0 0" rpy="0 0 0" />
+            <material name="gray" />
+        </visual>
+        <collision>
+            <geometry><cylinder radius="0.004" length="0.076" /></geometry>
+            <origin xyz="0 0 0" rpy="0 0 0" />
+        </collision>
+    </link>
+
+    <link name="bolt4">
+        <inertial>
+            <origin xyz="0 0 0" rpy="0 0 0" />
+            <mass value="0.04" />
+            <inertia ixx="0.00001941" ixy="0.0" ixz="0.0" iyy="0.00001941" iyz="0.0" izz="0.00000032" />
+        </inertial>
+        <visual>
+            <geometry><cylinder radius="0.004" length="0.076" /></geometry>
+            <origin xyz="0 0 0" rpy="0 0 0" />
+            <material name="gray" />
+        </visual>
+        <collision>
+            <geometry><cylinder radius="0.004" length="0.076" /></geometry>
+            <origin xyz="0 0 0" rpy="0 0 0" />
+        </collision>
+    </link>
+
+    <link name="motor1">
+        <inertial>
+            <origin xyz="0 0 0" rpy="0 0 0" />
+            <mass value="0.174" />
+            <inertia ixx="0.00005523" ixy="0.0" ixz="0.0" iyy="0.000077502" iyz="0.0" izz="0.000068672" />
+        </inertial>
+        <visual>
+            <geometry><box size="0.056 0.040 0.047" /></geometry>
+            <origin xyz="0 0 0" rpy="0 0 0" />
+            <material name="gray" />
+        </visual>
+        <collision>
+            <geometry><box size="0.056 0.040 0.047" /></geometry>
+            <origin xyz="0 0 0" rpy="0 0 0" />
+        </collision>
+    </link>
+
+    <link name="motor2">
+        <inertial>
+            <origin xyz="0 0 0" rpy="0 0 0" />
+            <mass value="0.174" />
+            <inertia ixx="0.00005523" ixy="0.0" ixz="0.0" iyy="0.000077502" iyz="0.0" izz="0.000068672" />
+        </inertial>
+        <visual>
+            <geometry><box size="0.056 0.040 0.047" /></geometry>
+            <origin xyz="0 0 0" rpy="0 0 0" />
+            <material name="gray" />
+        </visual>
+        <collision>
+            <geometry><box size="0.056 0.040 0.047" /></geometry>
+            <origin xyz="0 0 0" rpy="0 0 0" />
+        </collision>
+    </link>
+
+    <link name="wheel1">
+        <inertial>
+            <origin xyz="0 0 0" rpy="0 1.5707 0" />
+            <mass value="0.033" />
+            <inertia ixx="0.000011396" ixy="0.0" ixz="0.0" iyy="0.000011396" iyz="0.0" izz="0.000019074" />
+        </inertial>
+        <visual>
+            <geometry><cylinder radius="0.034" length="0.026" /></geometry>
+            <origin xyz="0 0 0" rpy="0 1.5707 0" />
+            <material name="gray" />
+        </visual>
+        <collision>
+            <geometry><cylinder radius="0.034" length="0.026" /></geometry>
+            <origin xyz="0 0 0" rpy="0 1.5707 0" />
+        </collision>
+    </link>
+
+    <link name="wheel2">
+        <inertial>
+            <origin xyz="0 0 0" rpy="0 1.5707 0" />
+            <mass value="0.033" />
+            <inertia ixx="0.000011396" ixy="0.0" ixz="0.0" iyy="0.000011396" iyz="0.0" izz="0.000019074" />
+        </inertial>
+        <visual>
+            <geometry><cylinder radius="0.034" length="0.026" /></geometry>
+            <origin xyz="0 0 0" rpy="0 1.5707 0" />
+            <material name="gray" />
+        </visual>
+        <collision>
+            <geometry><cylinder radius="0.034" length="0.026" /></geometry>
+            <origin xyz="0 0 0" rpy="0 1.5707 0" />
+        </collision>
+    </link>
+   
+    <joint name="upper_base_joint" type="fixed">
+        <parent link="base_link" />
+        <child link="upper_base_link" />
+        <origin xyz="0 0 0.079" rpy="0 0 0" />
+        <axis xyz="1 0 0" />
+    </joint>
+    
+    <joint name="battery_base_joint" type="fixed">
+        <parent link="base_link" />
+        <child link="battery" />
+        <origin xyz="0 0 0.0205" rpy="0 0 0" />
+        <axis xyz="1 0 0" />
+    </joint>
+
+    <joint name="bolt1_base_joint" type="fixed">
+        <parent link="base_link" />
+        <child link="bolt1" />
+        <origin xyz="0.075 0.055 0.0395" rpy="0 0 0" />
+        <axis xyz="1 0 0" />
+    </joint>
+
+    <joint name="bolt2_base_joint" type="fixed">
+        <parent link="base_link" />
+        <child link="bolt2" />
+        <origin xyz="-0.075 0.055 0.0395" rpy="0 0 0" />
+        <axis xyz="1 0 0" />
+    </joint>
+
+    <joint name="bolt3_base_joint" type="fixed">
+        <parent link="base_link" />
+        <child link="bolt3" />
+        <origin xyz="0.075 -0.055 0.0395" rpy="0 0 0" />
+        <axis xyz="1 0 0" />
+    </joint>     
+    
+    <joint name="bolt4_base_joint" type="fixed">
+        <parent link="base_link" />
+        <child link="bolt4" />
+        <origin xyz="-0.075 -0.055 0.0395" rpy="0 0 0" />
+        <axis xyz="1 0 0" />
+    </joint>
+
+    <joint name="motor1_base_joint" type="fixed">
+        <parent link="base_link" />
+        <child link="motor1" />
+        <origin xyz="0.057 0 -0.025" rpy="0 0 0" />
+        <axis xyz="1 0 0" />
+    </joint>   
+
+    <joint name="motor2_base_joint" type="fixed">
+        <parent link="base_link" />
+        <child link="motor2" />
+        <origin xyz="-0.057 0 -0.025" rpy="0 0 0" />
+        <axis xyz="1 0 0" />
+    </joint> 
+
+    <joint name="wheel1_motor1_joint" type="continuous">
+        <parent link="motor1" />
+        <child link="wheel1" />
+        <origin xyz="0.053 0 -0.0105" rpy="0 0 0" />
+        <axis xyz="1 0 0" />
+    </joint>   
+
+    <joint name="wheel2_motor2_joint" type="continuous">
+        <parent link="motor2" />
+        <child link="wheel2" />
+        <origin xyz="-0.053 0 -0.0105" rpy="0 0 0" />
+        <axis xyz="1 0 0" />
+    </joint>
+
+</robot>

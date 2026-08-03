@@ -18,11 +18,9 @@ from .twip import TwoWheel_CFG
 
 WHEEL_JOINT_NAMES = ["wheel1_motor1_joint", "wheel2_motor2_joint"]
 MOTOR_TORQUE_MAX = 0.49  # Nm — matches the effort_limit of the "wheels" actuator in twip.py
-# >>> CHANGED: 40/255 (=0.157) -> 0.0. A large sim dead-zone creates a flat "zero-torque" band that
-# gives the policy no gradient for small commands, so it collapsed to weak sub-threshold outputs.
-# The real motor dead-zone is handled on the FIRMWARE side (pulse-density + min-duty shaper), so we
-# train with a clean continuous action. Raise this again only if you specifically want to model it.
-MOTOR_DEADZONE = 0.0  # was 40/255; real dead-zone handled by the firmware motor shaper
+# Train with a clean continuous action (no sim dead-zone); the real motor dead-zone is handled by
+# the firmware shaper. A sim dead-zone gives no gradient for small commands and weakens the policy.
+MOTOR_DEADZONE = 0.0
 
 ##
 # Scene definition
@@ -41,8 +39,7 @@ class TwoWheelSceneCfg(InteractiveSceneCfg):
                 static_friction=1.5,
                 dynamic_friction=1.2,
                 restitution=0.0,
-                # "max": always take the larger friction of the two contacting materials (wheel - floor),
-                # avoiding a reduction from the default "average" combine mode when one side has lower friction.
+                # "max": use the larger friction of the two contacting materials (wheel/floor).
                 friction_combine_mode="max",
                 restitution_combine_mode="min",
             ),
@@ -56,17 +53,14 @@ class TwoWheelSceneCfg(InteractiveSceneCfg):
         spawn=sim_utils.DomeLightCfg(color=(0.9, 0.9, 0.9), intensity=500.0),
     )
 
-    # IMU mounted on the chassis, simulating a physical sensor (MPU6050, ICM42688...)
-    # lin_acc_b = R^T * (a_body + gravity_bias) — exactly what a real accelerometer measures,
-    # unlike projected_gravity = R^T * g (a perfect measurement, no noise from chassis acceleration)
+    # IMU on the chassis, simulating a physical sensor (MPU6050, ICM42688...). lin_acc_b measures
+    # R^T*(a_body + g), like a real accelerometer (unlike the clean projected_gravity = R^T*g).
     imu: ImuCfg = ImuCfg(
-        # merge_fixed_joints=True (twip.py) merges upper_base_link into base_link, so it must attach to base_link;
-        # add 0.079 (z offset of the old upper_base_joint) to keep the sensor at the height of the original design.
+        # Attach to base_link (fixed joints were merged into it); z=0.129 keeps the original sensor height.
         prim_path="{ENV_REGEX_NS}/Robot/base_link",
         offset=ImuCfg.OffsetCfg(
             pos=(0.0, 0.0, 0.129),
-            # +90° about Z: Z_sensor = Z_robot (unchanged, "up" stays the same)
-            # X_sensor = -Y_robot, Y_sensor = X_robot (the wheels' true pitch axis → sensor-Y)
+            # +90° about Z so sensor-Y aligns with the wheels' pitch axis (X_robot).
             rot=(0.7071068, 0.0, 0.0, 0.7071068),
         ),
         gravity_bias=(0.0, 0.0, 9.81),
@@ -83,11 +77,8 @@ class TwoWheelSceneCfg(InteractiveSceneCfg):
 class ActionsCfg:
     """Action: ONE command in [-1, 1] -> torque, applied EQUALLY to both wheels (1-D)."""
 
-    # >>> CHANGED: was JointEffortActionWithDeadzoneCfg (2-D, one effort per wheel).
-    # Now a single symmetric command so that: (a) the exported ONNX has ONE output, matching the
-    # on-board firmware (POLICY_ACT_DIM == 1); (b) the policy cannot steer/yaw, so training focuses
-    # on pure fore/aft balancing. The action term clamps torque to [-scale, scale] internally, so
-    # the raw actor output stays effectively in [-1, 1] (no separate `clip` needed).
+    # Single symmetric command so (a) the exported ONNX has one output matching the firmware
+    # (POLICY_ACT_DIM == 1) and (b) the policy focuses on fore/aft balancing (no steering/yaw).
     wheel_effort = mdp.SymmetricWheelEffortActionCfg(
         asset_name="robot",
         joint_names=WHEEL_JOINT_NAMES,
@@ -104,13 +95,11 @@ class ObservationsCfg:
     class PolicyCfg(ObsGroup):
         """Observations for policy group."""
 
-        # Gaussian noise models the residual sensor/filter error.
-        # >>> CHANGED: pitch noise 0.02 -> 0.01 rad. Near balance the true tilt is only ~0.03 rad, so
-        # std=0.02 (~1.1 deg) buried the angle signal in noise and the policy ignored it. 0.01 keeps a
-        # usable signal-to-noise ratio and matches a good complementary filter. Rate noise unchanged.
+        # Gaussian noise models residual sensor/filter error. Pitch std kept small (0.01 rad) so the
+        # tiny near-balance tilt signal (~0.03 rad) isn't buried in noise.
         pitch_angle = ObsTerm(func=mdp.imu_pitch_angle, noise=Gnoise(mean=0.0, std=0.01))
         pitch_rate = ObsTerm(func=mdp.imu_pitch_rate, noise=Gnoise(mean=0.0, std=0.02))
-        # encoder reads both wheels' angular velocity (rad/s) -- disabled to retrain with input of pitch angle/rate only
+        # Optional wheel-encoder observation (disabled: policy uses pitch angle/rate only).
         # wheel_vel = ObsTerm(
         #     func=mdp.joint_vel,
         #     params={"asset_cfg": SceneEntityCfg("robot", joint_names=WHEEL_JOINT_NAMES)},
@@ -127,8 +116,7 @@ class ObservationsCfg:
 class EventCfg:
     """Configuration for events."""
 
-    # wheel - floor friction: set once at startup (narrow range = fixed value, not randomized per episode),
-    # matching the ground's physics_material (static=1.5, dynamic=1.2) so the wheels grip the floor and don't slip.
+    # Wheel/floor friction fixed at startup to match the ground material (static=1.5, dynamic=1.2).
     wheel_friction = EventTerm(
         func=mdp.randomize_rigid_body_material,
         mode="startup",
@@ -141,8 +129,7 @@ class EventCfg:
         },
     )
 
-    # randomize the chassis center of mass (base_link, which merged upper_base/battery/bolts/motors via
-    # merge_fixed_joints) so the policy doesn't overfit to one ideal CoM and is more robust when the real CoM is offset.
+    # Randomize the chassis center of mass so the policy is robust to a real-world CoM offset.
     randomize_com = EventTerm(
         func=mdp.randomize_rigid_body_com,
         mode="startup",
@@ -152,8 +139,7 @@ class EventCfg:
         },
     )
 
-    # the wheels' true axis = X_robot = "roll" in the standard roll/pitch/yaw convention (rotation about X/Y/Z),
-    # so randomizing the initial tilt angle must use the key "roll", not "pitch"
+    # The tilt axis is X_robot = "roll" in roll/pitch/yaw terms, so randomize the "roll" key (not "pitch").
     reset_base = EventTerm(
         func=mdp.reset_root_state_uniform,
         mode="reset",
@@ -174,11 +160,8 @@ class EventCfg:
         },
     )
 
-    # random push along the Y axis (world), perpendicular to the motor rotation axis (X_robot),
-    # every 2-4s, simulating disturbance/collision so the robot learns to recover balance via wheel torque
-    # >>> CHANGED: softened the disturbance for stable early learning. Was y +-2.0 m/s every 1-3 s,
-    # which can topple this small robot past the fall limit before it has learned anything. Now
-    # +-1.0 m/s every 2-4 s. Once balancing is learned you can raise this back for more robustness.
+    # Random push along Y (world) every 2-4 s to teach balance recovery. Kept mild (+-1.0 m/s) so it
+    # doesn't topple the robot before it has learned; raise it later for more robustness.
     push_robot = EventTerm(
         func=mdp.push_by_setting_velocity,
         mode="interval",
@@ -194,70 +177,59 @@ class EventCfg:
 class RewardsCfg:
     """Reward terms for the MDP."""
 
-    # (1) Constant running reward
+    # (1) Constant reward for staying alive.
     alive = RewTerm(func=mdp.is_alive, weight=1.0)
-    # (2) Failure penalty
-    # >>> CHANGED: -1000 -> -50. The old value was ~200x the per-step rewards (~+-5) and blew up the
-    # PPO value function early on (the robot falls constantly at the start), a prime cause of "always
-    # fails". -50 still discourages falling while letting the alive/upright signal drive learning.
+    # (2) Failure penalty. Kept moderate (-50): a huge value blows up the PPO value function early
+    # (the robot falls constantly at first) and causes "always fails".
     terminating = RewTerm(func=mdp.is_terminated, weight=-50.0)
-    # (3) Primary task: keep the chassis upright (projected_gravity_b deviates from [0,0,-1])
+    # (3) Primary task: keep the chassis upright (projected_gravity_b away from [0,0,-1]).
     upright = RewTerm(
         func=mdp.base_upright_penalty,
         weight=-50.0,
         params={"asset_cfg": SceneEntityCfg("robot")},
     )
-    # (3b) Bonus: positive reward (exponential, upper-bounded at 1.0) when upright, complementing "upright" above
+    # (3b) Bounded upright bonus, complementing the unbounded "upright" penalty.
     upright_bonus = RewTerm(
         func=mdp.base_upright_reward,
         weight=5.0,
         params={"asset_cfg": SceneEntityCfg("robot"), "std": 0.2},
     )
-    # (4) Shaping: reduce tilt angular rate (damp oscillation)
+    # (4) Shaping: damp tilt oscillation.
     pitch_rate = RewTerm(
         func=mdp.ang_vel_xy_l2,
         weight=-0.05,
         params={"asset_cfg": SceneEntityCfg("robot")},
     )
-    # (5) Yaw-rate shaping.
-    # >>> DISABLED: yaw is NOT in the 2-D observation, so the policy cannot control it -> the term only
-    # adds reward variance. With the symmetric 1-D action both wheels get equal torque, so the robot
-    # barely yaws anyway. Re-enable only if you later add wheel-encoder terms to the observation.
+    # (5) Yaw-rate shaping (disabled: yaw isn't observed and the symmetric action barely yaws).
     # yaw_rate = RewTerm(
     #     func=mdp.ang_vel_z_l2,
     #     weight=-0.75,
     #     params={"asset_cfg": SceneEntityCfg("robot")},
     # )
-    # (6) Forward-drift shaping.
-    # >>> DISABLED: (a) linear velocity is not observable by the 2-D [pitch, pitch_rate] policy, so it
-    # cannot act on it; (b) it also penalised the WRONG axis -- the wheels spin about X_robot so the
-    # cart rolls along Y_robot, not X. Like the real IMU-only robot, some slow drift is expected/OK.
+    # (6) Forward-drift shaping (disabled: velocity isn't observed, and some slow drift is OK on the
+    # real IMU-only robot).
     # lin_vel_x = RewTerm(
     #     func=mdp.lin_vel_x_l2,
     #     weight=-0.1,
     #     params={"asset_cfg": SceneEntityCfg("robot")},
     # )
-    # (7) Shaping: penalize the two wheels spinning in opposite directions/at different speeds -- disabled together with removing encoder/wheel_vel
+    # (7) Wheel-difference shaping (disabled with the encoder observation).
     # wheel_vel_diff = RewTerm(
     #     func=mdp.wheel_vel_diff_l2,
     #     weight=-0.0000,
     #     params={"asset_cfg": SceneEntityCfg("robot", joint_names=WHEEL_JOINT_NAMES)},
     # )
-    # (8) Shaping: smooth action, avoid motor jerk
+    # (8) Shaping: smooth the action to avoid motor jerk.
     action_rate = RewTerm(func=mdp.action_rate_l2, weight=-0.1)
-    # (9) Shaping: reduce action magnitude, prefer near-zero action once balanced
+    # (9) Action-magnitude shaping (disabled).
     # action_l2 = RewTerm(func=mdp.action_l2, weight=-0.000)
-    # (10) Shaping: penalize wheel velocity (read from encoder) -- disabled together with removing encoder/wheel_vel
+    # (10) Wheel-velocity shaping (disabled with the encoder observation).
     # wheel_vel_l2 = RewTerm(
     #     func=mdp.joint_vel_l2,
     #     weight=-0.001,
     #     params={"asset_cfg": SceneEntityCfg("robot", joint_names=WHEEL_JOINT_NAMES)},
     # )
-    # (11) PD-imitation shaping.
-    # >>> DISABLED: we want a PURE RL policy, not a PID imitator (per the deployment goal). Its sign
-    # was also explicitly unverified in rewards.py -- if wrong, it actively pulls the policy toward a
-    # DE-stabilising controller and fights the upright reward (a top suspect for "always fails").
-    # Only re-enable if pure RL cannot converge AND you have verified the kp/kd sign in the sim first.
+    # (11) PD-imitation shaping (disabled: we want a pure RL policy, and its kp/kd sign is unverified).
     # pid_mimic = RewTerm(
     #     func=mdp.pid_mimic_l2,
     #     weight=-1.0,
@@ -269,9 +241,9 @@ class RewardsCfg:
 class TerminationsCfg:
     """Termination terms for the MDP."""
 
-    # (1) Time out
+    # (1) Episode time out.
     time_out = DoneTerm(func=mdp.time_out, time_out=True)
-    # (2) Fell past the allowed angle (~30°, computed from projected_gravity_b)
+    # (2) Fell past the allowed tilt (limit_angle=0.7 rad ~40°, from projected_gravity_b).
     fell_over = DoneTerm(
         func=mdp.bad_orientation,
         params={"asset_cfg": SceneEntityCfg("robot"), "limit_angle": 0.7},

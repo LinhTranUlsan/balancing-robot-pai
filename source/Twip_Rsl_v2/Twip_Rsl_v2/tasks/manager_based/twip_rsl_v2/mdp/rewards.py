@@ -20,21 +20,14 @@ if TYPE_CHECKING:
 
 
 def base_upright_penalty(env: ManagerBasedRLEnv, asset_cfg: SceneEntityCfg) -> torch.Tensor:
-    """
-    Penalize the robot when tilted. Based on projected_gravity_b (the world's Z vector projected into the chassis frame).
-    When perfectly upright this vector is [0, 0, 1]. We penalize the x (Roll) and y (Pitch) axes.
-    """
+    """Penalize tilt: sum of squares of the x/y components of projected_gravity_b (0 when upright)."""
     asset: Articulation = env.scene[asset_cfg.name]
     proj_grav = asset.data.projected_gravity_b
-    # Sum of squares of the x and y axes
     return torch.sum(torch.square(proj_grav[:, :2]), dim=1)
 
 
 def base_upright_reward(env: ManagerBasedRLEnv, asset_cfg: SceneEntityCfg, std: float = 0.2) -> torch.Tensor:
-    """
-    Reward for standing upright via an exponential kernel: equals 1.0 when perfectly upright,
-    decaying to 0 as it tilts. Complements base_upright_penalty (an unbounded penalty form).
-    """
+    """Bounded upright reward via an exponential kernel: 1.0 when upright, decaying to 0 as it tilts."""
     asset: Articulation = env.scene[asset_cfg.name]
     proj_grav = asset.data.projected_gravity_b
     tilt_sq = torch.sum(torch.square(proj_grav[:, :2]), dim=1)
@@ -56,19 +49,9 @@ def lin_vel_x_l2(env: ManagerBasedRLEnv, asset_cfg: SceneEntityCfg) -> torch.Ten
 def pid_mimic_l2(
     env: ManagerBasedRLEnv, kp: float = 8.0, kd: float = 0.5, angle_setpoint: float = 0.0
 ) -> torch.Tensor:
-    """
-    Penalize the deviation between the action the policy chooses and the action a reference PD controller
-    (target = clamp(kp*(pitch_angle - angle_setpoint) + kd*pitch_rate, -1, 1)) would produce for the same current state.
-    There is no I (integral) term because it would need its own state buffer, which does not fit a pure reward function.
+    """Shaping reward pulling the action toward a reference PD target clamp(kp*(pitch-setpoint)+kd*rate).
 
-    angle_setpoint: target pitch angle (rad) -- 0.0 means the robot is upright along the Z axis (not tilted
-    to either side), the desired balanced state.
-
-    This is an "imitation" (shaping) reward, not a replacement for upright/terminating -- it only pulls the
-    policy toward near-linear PD behavior; the other rewards still decide whether it actually balances.
-
-    Note: the sign of kp/kd has not been verified against the robot's true axis convention -- if applying it
-    makes oscillation worse (instead of reducing it), try flipping the sign of kp and kd.
+    No integral term (a reward function has no state). If it worsens oscillation, flip the kp/kd sign.
     """
     pitch_angle = imu_pitch_angle(env).squeeze(-1)  # (N,)
     pitch_rate = imu_pitch_rate(env).squeeze(-1)  # (N,)
@@ -80,9 +63,9 @@ def pid_mimic_l2(
 
 
 def wheel_vel_diff_l2(env: ManagerBasedRLEnv, asset_cfg: SceneEntityCfg) -> torch.Tensor:
-    """Penalize the two wheels spinning in opposite directions/at different speeds (square of the difference of their angular velocities).
+    """Penalize the two wheels spinning differently: square of their angular-velocity difference.
 
-    asset_cfg.joint_ids must point to the two wheel joints. Opposite spin -> large difference -> heavy penalty.
+    asset_cfg.joint_ids must point to the two wheel joints.
     """
     asset: Articulation = env.scene[asset_cfg.name]
     wheel_vel = asset.data.joint_vel[:, asset_cfg.joint_ids]

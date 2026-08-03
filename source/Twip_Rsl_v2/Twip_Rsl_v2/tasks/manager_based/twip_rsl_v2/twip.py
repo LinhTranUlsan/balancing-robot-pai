@@ -8,10 +8,9 @@ from isaaclab.assets import ArticulationCfg
 
 
 def _resolve_urdf(rel_path: str = "assets/TwoWheel.urdf") -> str:
-    """Locate the URDF automatically, WITHOUT hardcoding the path (works on both Windows and Linux).
+    """Locate the URDF without a hardcoded path (cross-platform).
 
-    Prefers the TWIP_URDF environment variable; otherwise walks UP from this file through the
-    parent directories until it finds 'assets/TwoWheel.urdf' (repo root). Returns a posix path.
+    Uses the TWIP_URDF env var if set, else walks up from this file to find the repo's assets/.
     """
     env_path = os.environ.get("TWIP_URDF")
     if env_path and Path(env_path).is_file():
@@ -22,8 +21,8 @@ def _resolve_urdf(rel_path: str = "assets/TwoWheel.urdf") -> str:
         if candidate.is_file():
             return candidate.as_posix()
     raise FileNotFoundError(
-        f"Khong tim thay '{rel_path}' khi di nguoc tu {here}. "
-        "Dat bien moi truong TWIP_URDF tro toi file URDF neu de o noi khac."
+        f"Could not find '{rel_path}' walking up from {here}. "
+        "Set the TWIP_URDF environment variable to the URDF path if it lives elsewhere."
     )
 
 
@@ -35,14 +34,11 @@ _URDF_PATH = _resolve_urdf()
 
 TwoWheel_CFG = ArticulationCfg(
     spawn=sim_utils.UrdfFileCfg(
-        # Spawn directly from the source URDF (no pre-built USD) to avoid config drift
-        # whenever TwoWheel.urdf changes (link/inertial/collision).
-    
+        # Spawn from the URDF directly (no pre-built USD) so it tracks changes to TwoWheel.urdf.
         asset_path=_URDF_PATH,
         fix_base=False,
         root_link_name="base_link",
-        # merge links joined by fixed joints (upper_base_link, battery, bolt1-4, motor1-2)
-        # into base_link → leaving 3 rigid bodies: base_link, wheel1, wheel2.
+        # Merge fixed-joint links into base_link -> 3 rigid bodies: base_link, wheel1, wheel2.
         merge_fixed_joints=True,
         self_collision=False,
         joint_drive=sim_utils.UrdfConverterCfg.JointDriveCfg(
@@ -67,9 +63,7 @@ TwoWheel_CFG = ArticulationCfg(
         ),
     ),
     init_state=ArticulationCfg.InitialStateCfg(
-        # base_link -> motor: z=-0.025; motor -> wheel: z=-0.0105; wheel radius=0.034
-        # wheel bottom = -0.025 - 0.0105 - 0.034 = -0.0695 relative to base_link
-        # → spawn base_link at z=0.0695 + margin (0.002) so the wheels just touch the ground
+        # Wheel bottom sits 0.0695 below base_link; spawn at 0.0715 (+2mm) so wheels just touch ground.
         pos=(0.0, 0.0, 0.0715),
         joint_pos={
             "wheel1_motor1_joint": 0.0,
@@ -79,8 +73,7 @@ TwoWheel_CFG = ArticulationCfg(
     actuators={
         "wheels": IdealPDActuatorCfg(
             joint_names_expr=["wheel1_motor1_joint", "wheel2_motor2_joint"],
-            # real max torque of motor1/motor2
-            effort_limit=0.49,
+            effort_limit=0.49,  # real max torque of motor1/motor2 (Nm)
             stiffness=0.0,
             damping=0.002,
         ),

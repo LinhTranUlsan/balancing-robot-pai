@@ -20,17 +20,10 @@ if TYPE_CHECKING:
     from isaaclab.envs import ManagerBasedRLEnv
 
 
-# NOTE (superseded): this 2-D per-wheel action is kept for reference only. The env now uses
-# SymmetricWheelEffortAction (1-D, defined at the bottom of this file) so the exported ONNX has a
-# single output matching the on-board firmware. See ActionsCfg in twip_rsl_v2_env_cfg.py.
+# Superseded 2-D per-wheel action, kept for reference. The env uses SymmetricWheelEffortAction (1-D)
+# below so the exported ONNX has a single output matching the firmware.
 class JointEffortActionWithDeadzone(JointEffortAction):
-    """Joint effort action that models the dead-zone of a real motor driver.
-
-    A real driver needs a PWM pulse above a certain threshold (due to static friction / gearbox
-    stiffness) before it produces torque. When |raw_action| is below the ``cfg.deadzone`` threshold
-    (normalized [-1, 1] scale, same as the raw action), the output torque is forced to 0 instead of
-    being scaled linearly as usual.
-    """
+    """Joint effort action modeling a motor-driver dead-zone: torque is 0 when |raw_action| < deadzone."""
 
     cfg: JointEffortActionWithDeadzoneCfg
 
@@ -50,20 +43,13 @@ class JointEffortActionWithDeadzoneCfg(JointEffortActionCfg):
     """Dead-zone threshold, in terms of the normalized raw action [-1, 1] (same scale as the action before scaling)."""
 
 
-# ======================================================================================
-# >>> ADDED: single symmetric wheel effort (1-D action) for the RL -> firmware pipeline.
-# ======================================================================================
+# Single symmetric wheel effort (1-D action) for the RL -> firmware pipeline.
 class SymmetricWheelEffortAction(ActionTerm):
-    """One scalar effort command applied IDENTICALLY to every wheel joint (action_dim == 1).
+    """One scalar effort command (action_dim == 1) applied identically to every wheel joint.
 
-    Why: the physical robot's on-board firmware sends a SINGLE motor command to both wheels
-    (POLICY_ACT_DIM == 1). A normal JointEffortAction over 2 joints makes the policy output 2
-    values (one per wheel) and lets it steer/yaw -- which the firmware cannot reproduce and which
-    only complicates balancing. Keeping action_dim == 1 makes the exported ONNX have exactly one
-    output that maps directly onto the firmware's ``u`` in [-1, 1].
-
-    Per step: raw action (N, 1) in [-1, 1] -> dead-zone -> * scale (Nm)
-    -> clamp to [-scale, scale] -> broadcast the SAME torque to all wheel joints.
+    Matches the firmware, which sends a single command to both wheels (POLICY_ACT_DIM == 1), so the
+    exported ONNX has one output and the policy can't steer/yaw.
+    Per step: raw (N, 1) in [-1, 1] -> dead-zone -> *scale (Nm) -> clamp -> broadcast to all wheels.
     """
 
     cfg: SymmetricWheelEffortActionCfg

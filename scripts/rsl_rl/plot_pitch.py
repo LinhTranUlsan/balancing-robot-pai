@@ -16,11 +16,11 @@ from isaaclab.app import AppLauncher
 # local imports
 import cli_args  # isort: skip
 
-parser = argparse.ArgumentParser(description="Chạy checkpoint RSL-RL và vẽ đồ thị góc pitch theo thời gian.")
-parser.add_argument("--num_steps", type=int, default=1000, help="Số control step muốn ghi lại (mặc định ~10s @ 100Hz).")
-parser.add_argument("--out", type=str, default="pitch_plot.png", help="Đường dẫn file ảnh PNG xuất ra.")
-parser.add_argument("--num_envs", type=int, default=1, help="Số môi trường (nên để 1 để dễ theo dõi 1 robot).")
-parser.add_argument("--task", type=str, default=None, help="Tên task.")
+parser = argparse.ArgumentParser(description="Run an RSL-RL checkpoint and plot the pitch angle over time.")
+parser.add_argument("--num_steps", type=int, default=1000, help="Number of control steps to record (default ~10s @ 100Hz).")
+parser.add_argument("--out", type=str, default="pitch_plot.png", help="Output PNG file path.")
+parser.add_argument("--num_envs", type=int, default=1, help="Number of environments (use 1 to follow a single robot).")
+parser.add_argument("--task", type=str, default=None, help="Task name.")
 parser.add_argument(
     "--agent", type=str, default="rsl_rl_cfg_entry_point", help="Name of the RL agent configuration entry point."
 )
@@ -98,7 +98,7 @@ def main(env_cfg: ManagerBasedRLEnvCfg | DirectRLEnvCfg, agent_cfg: RslRlBaseRun
             actions = policy(obs)
             obs, _, dones, _ = env.step(actions)
             policy_nn.reset(dones)
-            # obs order (concatenate_terms=True): [pitch_angle, pitch_rate, wheel_vel_0, wheel_vel_1]
+            # obs order (concatenate_terms=True): [pitch_angle, pitch_rate]
             pitch_rad = obs["policy"][0, 0].item()
             pitch_deg_log.append(np.degrees(pitch_rad))
             dones_log.append(bool(dones[0].item()))
@@ -114,7 +114,7 @@ def main(env_cfg: ManagerBasedRLEnvCfg | DirectRLEnvCfg, agent_cfg: RslRlBaseRun
     ax.axhline(0, color="gray", linewidth=0.8)
     ax.set_xlabel("Time (s)")
     ax.set_ylabel("Pitch angle (deg)")
-    ax.set_title("Pitch angle theo thời gian (nét đứt đỏ = episode reset/termination)")
+    ax.set_title("Pitch angle over time (red dashed line = episode reset/termination)")
     ax.legend()
     fig.tight_layout()
     fig.savefig(args_cli.out, dpi=150)

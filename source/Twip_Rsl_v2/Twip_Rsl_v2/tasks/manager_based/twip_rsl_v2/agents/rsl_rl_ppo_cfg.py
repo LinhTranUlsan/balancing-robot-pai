@@ -13,12 +13,10 @@ class PPORunnerCfg(RslRlOnPolicyRunnerCfg):
     num_steps_per_env = 16
     max_iterations = 10000
     save_interval = 50
-    # >>> CHANGED: was "cartpole_direct" (copy-paste leftover). Logs now go to logs/rsl_rl/twip_rsl_v2/
-    experiment_name = "twip_rsl_v2"
+    experiment_name = "twip_rsl_v2"  # logs go to logs/rsl_rl/twip_rsl_v2/
     policy = RslRlPpoActorCriticCfg(
-        # >>> CHANGED: 1.0 -> 0.5. std=1.0 saturates the action to +-1 from the first step, so the
-        # robot is slammed over and almost never experiences a balanced state. 0.5 gives gentler
-        # initial exploration, which matters a lot for this sensitive balancing task.
+        # Gentle initial exploration; std=1.0 saturates the action to +-1 and topples this
+        # sensitive robot before it ever sees a balanced state.
         init_noise_std=0.5,
         actor_obs_normalization=False,
         critic_obs_normalization=False,

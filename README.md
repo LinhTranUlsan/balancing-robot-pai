@@ -1,6 +1,6 @@
 # balancing-robot-pai
 
-A complete **reinforcement-learning (RL) pipeline for a two-wheeled inverted pendulum (TWIP) self-balancing robot** — trained in **NVIDIA Isaac Lab / Isaac Sim**, exported to **ONNX**, converted to a plain C header, and deployed to an **ESP32-S3** running an L298N motor driver.
+A complete **reinforcement-learning (RL) pipeline for a balancing robot** — trained in **NVIDIA Isaac Lab / Isaac Sim**, exported to **ONNX**, converted to a plain C header, and deployed to an **ESP32-S3** running an L298N motor driver.
 
 > This project uses **RL (PPO)**, not a hand-tuned PID controller. The policy is a small MLP
 > (`2 → 32 → 32 → 1`, ELU) that maps `[pitch, pitch_rate]` to a single symmetric wheel torque.
@@ -37,9 +37,8 @@ Isaac Lab (train PPO)  ──►  policy.onnx  ──►  policy_weights.h  ─�
 
 ### For training / simulation (`source/`, `scripts/`)
 1. **NVIDIA RTX GPU** + recent driver.
-2. **Isaac Sim 5.1** (also compatible with 4.5 / 5.0) **and Isaac Lab**, installed per the
-   [official Isaac Lab install guide](https://isaac-sim.github.io/IsaacLab/main/source/setup/installation/index.html).
-   Python **3.10 or 3.11**.
+2. **Isaac Sim 5.1** (also compatible with 4.5 / 5.0) **and Isaac Lab** — full step-by-step pip
+   install (conda + git + Isaac Sim + Isaac Lab) is in **Section 3** below. Python **3.10 or 3.11**.
 3. **rsl-rl-lib ≥ 3.0.1** (usually ships with Isaac Lab; `train.py` prints the exact
    `pip install` command if the version is wrong).
 
@@ -61,18 +60,88 @@ pip install onnx onnxruntime numpy
 
 ---
 
-## 3. Install (simulation side)
+## 3. Install (conda → git → Isaac Sim → Isaac Lab → this repo)
 
+Isaac Sim and Isaac Lab are installed **via pip inside a conda environment**. Do the steps in order.
+Exact package versions depend on your Isaac Sim release — this guide follows the official
+[Isaac Lab pip-install docs](https://isaac-sim.github.io/IsaacLab/main/source/setup/installation/pip_installation.html);
+open that page and match the versions to **Isaac Sim 5.1** if they differ from the examples below.
+
+### 3.1 Install conda (Miniconda) and git
+
+**Windows**
+```powershell
+# Option A — one-liner with winget (Windows 10/11):
+winget install -e --id Anaconda.Miniconda3
+winget install -e --id Git.Git
+# Option B — manual: download and run the installers:
+Miniconda : https://www.anaconda.com/download  (or https://docs.conda.io/en/latest/miniconda.html)
+Git       : https://git-scm.com/download/win
+After installing, use the "Anaconda Prompt" so `conda` is on PATH.
+```
+
+**Ubuntu (20.04 / 22.04)**
 ```bash
-git clone https://github.com/<your-user>/balancing-robot-pai.git
+# git + build tools:
+sudo apt-get update && sudo apt-get install -y git cmake build-essential
+# Miniconda:
+wget https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh -O ~/miniconda.sh
+bash ~/miniconda.sh -b -p $HOME/miniconda
+eval "$($HOME/miniconda/bin/conda shell.bash hook)"
+conda init            # then restart the terminal
+```
+
+### 3.2 Create and activate a conda environment (Python 3.11)
+```bash
+conda create -n env_isaaclab python=3.11 -y
+conda activate env_isaaclab
+python -m pip install --upgrade pip
+```
+
+### 3.3 Install a CUDA-enabled PyTorch
+Pick the CUDA build matching your driver (example uses CUDA 12.8). See the official docs for the exact
+torch version paired with your Isaac Sim release.
+```bash
+pip install -U torch==2.7.0 torchvision==0.22.0 --index-url https://download.pytorch.org/whl/cu128
+```
+
+### 3.4 Install Isaac Sim via pip
+```bash
+pip install --upgrade pip
+# Replace the version with the one matching your Isaac Sim release (example: 5.1.0):
+pip install "isaacsim[all,extscache]==5.1.0" --extra-index-url https://pypi.nvidia.com
+# Verifying the Isaac Sim installation
+isaacsim
+```
+On first launch Isaac Sim compiles shaders/extensions — that first run can take several minutes.
+
+### 3.5 Install Isaac Lab
+```bash
+git clone https://github.com/isaac-sim/IsaacLab.git
+cd IsaacLab
+# Windows:
+isaaclab.bat --install
+# Ubuntu:
+./isaaclab.sh --install
+cd ..
+```
+
+### 3.6 Clone THIS repository and install the extension
+```bash
+git clone https://github.com/LinhTranUlsan/balancing-robot-pai.git
 cd balancing-robot-pai
 
-# Install this extension into the Isaac Lab Python env (EDITABLE install):
+# Editable install of the TWIP extension into the same conda env:
 python -m pip install -e source/Twip_Rsl_v2
 
 # Verify the task registered:
 python scripts/list_envs.py        # should list: Template-Twip-Rsl-V2-v0
 ```
+
+> From here on, run every `scripts/` command **with `env_isaaclab` activated** (that env now contains
+> Isaac Sim). If you did NOT install Isaac Sim into the conda env, prefix scripts with the Isaac Lab
+> launcher instead: `<path-to-IsaacLab>\isaaclab.bat -p <script>` (Windows) /
+> `<path-to-IsaacLab>/isaaclab.sh -p <script>` (Linux).
 
 ---
 

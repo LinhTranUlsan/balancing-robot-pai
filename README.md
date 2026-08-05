@@ -1,13 +1,13 @@
 # balancing-robot-pai
 
-A complete **reinforcement-learning (RL) pipeline for a balancing robot** — trained in **NVIDIA Isaac Lab / Isaac Sim**, exported to **ONNX**, converted to a plain C header, and deployed to an **ESP32-S3** running an L298N motor driver.
+A complete **reinforcement-learning (RL) pipeline for a balancing robot** — trained in **NVIDIA Isaac Lab / Isaac Sim**, exported to **ONNX**, converted to a **plain C header** of MLP weights, and deployed to an **ESP32-S3** (PlatformIO) running an L298N motor driver.
 
 > This project uses **RL (PPO)**, not a hand-tuned PID controller. The policy is a small MLP
 > (`2 → 32 → 32 → 1`, ELU) that maps `[pitch, pitch_rate]` to a single symmetric wheel torque.
 
 ```
 Isaac Lab (train PPO)  ──►  policy.onnx  ──►  policy_weights.h  ──►  ESP32-S3 firmware
-   scripts/rsl_rl/          play.py           pc_policy/            firmware/…_l298n
+   scripts/rsl_rl/          play.py         (C MLP weights)         deploy/ (PlatformIO)
 ```
 
 ---
@@ -20,8 +20,7 @@ Isaac Lab (train PPO)  ──►  policy.onnx  ──►  policy_weights.h  ─�
 | `assets/TwoWheel.urdf` | Robot description used by the simulation. |
 | `assets/TwoWheel/…*.usd` | Pre-converted USD stage of the robot (optional; the env spawns from the URDF). |
 | `scripts/` | Launchers: `list_envs.py`, `zero_agent.py`, `random_agent.py`, `run_onnx_policy.py`, and `rsl_rl/{train,play,cli_args,plot_pitch}.py`. |
-| `pc_policy/` | Convert / inspect ONNX policies: `export_policy_header.py`, `inspect_onnx.py`, `make_example_onnx.py`, `run_policy_serial.py`, plus a ready-to-flash demo `example_policy_strong.onnx`. |
-| `firmware/rl_policy_esp32s3_l298n/` | ESP32-S3 Arduino sketch (`.ino`), the generated `policy_weights.h`, and wiring/usage notes. |
+| `deploy/` | ESP32-S3 firmware — a **PlatformIO** C/C++ project. `src/main.cpp` runs the policy with a **hand-written MLP forward** (no external ML runtime), reading the exported weights in `include/policy_weights.h`. Reads the BMI160 IMU over raw I²C and drives the L298N via a pulse-density motor shaper. Also ships `export_policy_header.py` (ONNX → `policy_weights.h` converter). |
 | `pyproject.toml` | Ruff / formatting / pytest config for the repo. |
 
 ### The robot (hardware this firmware targets)
@@ -48,15 +47,11 @@ Isaac Lab (train PPO)  ──►  policy.onnx  ──►  policy_weights.h  ─�
 > - Windows: `<path-to-IsaacLab>\isaaclab.bat -p <script>`
 > - Linux: `<path-to-IsaacLab>/isaaclab.sh -p <script>`
 
-### For ONNX → C header (`pc_policy/`)
-```bash
-pip install onnx onnxruntime numpy
-# torch is only needed if you run make_example_onnx.py
-```
-
-### For the firmware (`firmware/`)
-- **Arduino IDE** (or arduino-cli) with the **esp32 board package ≥ 3.0**.
-- A BMI160 I²C library (see the sketch's includes) and the WS2812/FastLED-style LED lib if you keep the status LED.
+### For on-device deployment (`deploy/`)
+- **PlatformIO** — either the VS Code **PlatformIO IDE** extension, or the CLI: `pip install platformio`.
+- On first build PlatformIO installs the ESP32 toolchain (and any libraries listed in `platformio.ini`)
+  automatically. `src/main.cpp` itself is self-contained — raw-I²C BMI160, interrupt-driven encoders,
+  and a hand-written MLP — so it needs no external ML runtime.
 
 ---
 
@@ -150,6 +145,10 @@ python scripts/list_envs.py        # should list: Template-Twip-Rsl-V2-v0
 ```bash
 # Train (headless is fastest). Checkpoints go to logs/rsl_rl/twip_rsl_v2/<timestamp>/
 python scripts/rsl_rl/train.py --task=Template-Twip-Rsl-V2-v0 --headless
+# Or show the GUI
+python scripts/rsl_rl/train.py --task=Template-Twip-Rsl-V2-v0
+# Or change the number of simulation environments
+python scripts/rsl_rl/train.py --task=Template-Twip-Rsl-V2-v0 --num_envs=16 # Remove --headless to show the GUI
 
 # Replay a checkpoint AND export policy.onnx (rsl_rl exports on play):
 python scripts/rsl_rl/play.py  --task=Template-Twip-Rsl-V2-v0 \
@@ -168,34 +167,45 @@ python scripts/random_agent.py --task=Template-Twip-Rsl-V2-v0
 
 ---
 
-## 5. Convert ONNX → firmware header
+## 5. Deploy the policy on-device (`deploy/`)
 
-```bash
-python pc_policy/export_policy_header.py \
-    --model logs/rsl_rl/twip_rsl_v2/<timestamp>/exported/policy.onnx \
-    --out   firmware/rl_policy_esp32s3_l298n/policy_weights.h
+`deploy/` is a self-contained **PlatformIO** project (C/C++). `src/main.cpp` runs the policy with a
+**hand-written MLP forward** — no TensorFlow/ONNX runtime on the MCU — reading the network weights from
+`include/policy_weights.h`. That header defines `POLICY_OBS_DIM` (2: `[pitch, rate]`), `POLICY_ACT_DIM`
+(1 or 2 wheel commands), and the layer weights (this build: `2 → 32 → 32 → 1`, ELU).
 
-# Inspect any policy's layers / test a forward pass:
-python pc_policy/inspect_onnx.py --model <path>.onnx
-```
-
-Want to try the pipeline **without training first?** Use the bundled demo:
-```bash
-python pc_policy/export_policy_header.py \
-    --model pc_policy/example_policy_strong.onnx \
-    --out   firmware/rl_policy_esp32s3_l298n/policy_weights.h
-```
+**To update the on-device policy**, regenerate `deploy/include/policy_weights.h` from a new ONNX with
+the bundled converter `deploy/export_policy_header.py`:
+1. Export the policy to ONNX (Section 4).
+2. Convert ONNX → C header (needs `pip install onnx onnxruntime numpy`):
+   ```bash
+   python deploy/export_policy_header.py \
+       --model <path>/policy.onnx \
+       --out   deploy/include/policy_weights.h --verify
+   ```
+   `--verify` cross-checks the generated C weights against ONNX Runtime; `--check` prints a couple of
+   sample outputs to compare with the firmware's boot self-test.
+3. Rebuild & upload (Section 6). The firmware enforces `POLICY_OBS_DIM == 2` at **compile time** and
+   supports 1 or 2 actions; a different obs size stops the build with a clear `#error`.
 
 ---
 
-## 6. Flash the ESP32-S3
+## 6. Build & flash the ESP32-S3 (PlatformIO)
 
-1. Open `firmware/rl_policy_esp32s3_l298n/rl_policy_esp32s3_l298n.ino` in the Arduino IDE.
-2. Board: **ESP32S3 Dev Module**, **USB CDC On Boot: Enabled**, esp32 core **≥ 3.0**.
-3. Confirm at the top of the sketch: `CONTROL_HZ = 100` and `policy_weights.h` matches your model
-   (`POLICY_OBS_DIM == 2`, `POLICY_ACT_DIM == 1`).
-4. Upload. See `firmware/rl_policy_esp32s3_l298n/README.md` for the serial commands
-   (pitch trim `s`, motor test, etc.).
+From the `deploy/` folder (PlatformIO CLI, or the VS Code PlatformIO buttons):
+```bash
+cd deploy
+pio run                 # compile
+pio run -t upload       # flash the ESP32-S3 over USB
+pio device monitor      # serial monitor @ 115200 (pitch / rate / motor commands / encoders)
+```
+- Board & flash settings live in `platformio.ini` (board `esp32-s3-devkitm-1`, 4 MB flash,
+  USB-CDC-on-boot).
+- **At boot the robot calibrates the IMU — hold it upright and still for ~2 s** until the serial log
+  prints the offset. Re-run calibration any time with the `c` command.
+- Runs a **100 Hz** super-loop (`CONTROL_HZ = 100`, matching training). A built-in serial tuner lets
+  you flip motor/gyro signs and set the pitch trim live — type `?` in the monitor to list commands
+  (e.g. `m -1`, `j -1`, `k -1`, `s <deg>`, `t` motor test, `x` / `o` stop / go).
 
 ---
 
@@ -208,8 +218,9 @@ python pc_policy/export_policy_header.py \
 | `list_envs.py` shows nothing / task missing | Import side-effect didn't run — reinstall the extension; make sure you're using the Isaac Lab interpreter. |
 | rsl-rl version error on `train.py` | Install the exact version the script prints (`rsl-rl-lib>=3.0.1`). |
 | Isaac Sim crashes / GPU errors | Wrong Isaac Sim version or driver — use 5.1 (or 4.5/5.0) with a supported RTX driver. |
-| Arduino: `redefinition of 'setup'/'loop'` | Keep **only one** `.ino` in the sketch folder. |
-| Robot balances in sim but not on hardware | Ensure `CONTROL_HZ = 100`, calibrate pitch trim (`s` command), and verify motor/encoder wiring against the pin table above. |
+| PlatformIO: build fails / toolchain not found | Run commands from inside `deploy/` so it reads `platformio.ini`; let the first build install the ESP32 platform. |
+| Build error: `#error "Firmware lap obs 2 chieu ..."` | `policy_weights.h` has `POLICY_OBS_DIM != 2` — re-export a 2-obs `[pitch, rate]` policy, or adapt `assembleObs()` in `src/main.cpp`. |
+| Robot balances in sim but not on hardware | Hold it still during the boot IMU calibration, use the serial tuner (`?`) to fix motor/gyro sign and pitch trim, and verify wiring against the pin table above. |
 
 ---
 

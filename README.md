@@ -175,6 +175,8 @@ python scripts/rsl_rl/train.py --task=Template-Twip-Rsl-V2-v0 --num_envs=16 # Re
 python scripts/rsl_rl/play.py  --task=Template-Twip-Rsl-V2-v0 \
     --checkpoint logs/rsl_rl/twip_rsl_v2/<timestamp>/model_<N>.pt --num_envs=16
 # → the exported policy lands in logs/rsl_rl/twip_rsl_v2/<timestamp>/exported/policy.onnx
+# Watch the plot in tensorboard:
+tensorboard --logdir <your_log_folder>
 ```
 
 Useful flags: `--num_envs`, `--seed -1` (random), `--max_iterations`, `--device cuda:0`,

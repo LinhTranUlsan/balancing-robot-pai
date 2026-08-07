@@ -90,7 +90,6 @@ conda init            # then restart the terminal
 ```bash
 conda create -n env_isaaclab python=3.11 -y
 conda activate env_isaaclab
-python -m pip install --upgrade pip
 ```
 
 ### 3.3 Install a CUDA-enabled PyTorch
@@ -115,9 +114,9 @@ On first launch Isaac Sim compiles shaders/extensions — that first run can tak
 git clone https://github.com/isaac-sim/IsaacLab.git
 cd IsaacLab
 # Windows:
-isaaclab.bat --install
+isaaclab.bat --install ::
 # Ubuntu:
-./isaaclab.sh --install
+./isaaclab.sh --install ::
 cd ..
 ```
 

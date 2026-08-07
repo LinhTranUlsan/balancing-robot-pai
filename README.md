@@ -92,18 +92,19 @@ conda create -n env_isaaclab python=3.11 -y
 conda activate env_isaaclab
 ```
 
-### 3.3 Install a CUDA-enabled PyTorch
-Pick the CUDA build matching your driver (example uses CUDA 12.8). See the official docs for the exact
-torch version paired with your Isaac Sim release.
-```bash
-pip install -U torch==2.7.0 torchvision==0.22.0 --index-url https://download.pytorch.org/whl/cu128
-```
-
-### 3.4 Install Isaac Sim via pip
+### 3.3 Install Isaac Sim via pip
 ```bash
 pip install --upgrade pip
 # Replace the version with the one matching your Isaac Sim release (example: 5.1.0):
 pip install "isaacsim[all,extscache]==5.1.0" --extra-index-url https://pypi.nvidia.com
+
+```
+
+### 3.4 Install a CUDA-enabled PyTorch
+Pick the CUDA build matching your driver (example uses CUDA 12.8). See the official docs for the exact
+torch version paired with your Isaac Sim release.
+```bash
+pip install -U torch==2.7.0 torchvision==0.22.0 --index-url https://download.pytorch.org/whl/cu128
 # Verifying the Isaac Sim installation
 isaacsim
 ```
@@ -114,9 +115,9 @@ On first launch Isaac Sim compiles shaders/extensions — that first run can tak
 git clone https://github.com/isaac-sim/IsaacLab.git
 cd IsaacLab
 # Windows:
-isaaclab.bat --install ::
+isaaclab.bat --install
 # Ubuntu:
-./isaaclab.sh --install ::
+./isaaclab.sh --install
 cd ..
 ```
 

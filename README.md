@@ -104,7 +104,7 @@ pip install "isaacsim[all,extscache]==5.1.0" --extra-index-url https://pypi.nvid
 Pick the CUDA build matching your driver (example uses CUDA 12.8). See the official docs for the exact
 torch version paired with your Isaac Sim release.
 ```bash
-pip install -U torch==2.7.0 torchvision==0.22.0 --index-url https://download.pytorch.org/whl/cu128
+pip install -U torch==2.7.0 torchvision==0.22.0 torchaudio==2.7.0 --index-url https://download.pytorch.org/whl/cu128
 # Verifying the Isaac Sim installation
 isaacsim
 ```
@@ -115,10 +115,17 @@ On first launch Isaac Sim compiles shaders/extensions — that first run can tak
 git clone https://github.com/isaac-sim/IsaacLab.git
 cd IsaacLab
 # Windows:
-isaaclab.bat --install
-# Ubuntu:
-./isaaclab.sh --install
-cd ..
+isaaclab.bat --install rsl_rl
+
+## Optional
+isaaclab.bat --install rl_games
+isaaclab.bat --install skrl
+isaaclab.bat --install sb3
+
+## run this to avoid the crash
+pip install --no-deps --force-reinstall torch==2.7.0 torchvision==0.22.0 torchaudio==2.7.0 --index-url https://download.pytorch.org/whl/cu128
+pip install --no-deps --force-reinstall "tensordict==0.8.*"
+pip install --no-deps typing_extensions==4.12.2 psutil==5.9.8
 ```
 
 ### 3.6 Clone THIS repository and install the extension

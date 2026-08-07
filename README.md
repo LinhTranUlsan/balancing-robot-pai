@@ -41,6 +41,8 @@ Isaac Lab (train PPO)  ──►  policy.onnx  ──►  policy_weights.h  ─�
 3. **rsl-rl-lib 3.1.x** — comes automatically with Isaac Lab `v2.3.2` (which pins `3.1.2`).
    **4.x / 5.x will not work**: they replaced the single `policy` config with separate
    `actor` / `critic` models. Pinning Isaac Lab (Section 3.5) is what keeps this correct.
+4. **numpy 1.26.x** (required by Isaac Sim 5.1) and **h5py 3.11.0** — both pinned by the
+   commands in Section 3.5. Do not upgrade them.
 
 > ⚠️ Everything under `scripts/` and `source/` must be run with the **Isaac Lab Python
 > interpreter**, not a plain system `python`. Either activate the Isaac Lab conda env, or
@@ -134,6 +136,10 @@ isaaclab.bat --install sb3
 pip install --no-deps --force-reinstall torch==2.7.0 torchvision==0.22.0 torchaudio==2.7.0 --index-url https://download.pytorch.org/whl/cu128
 pip install --no-deps --force-reinstall "tensordict==0.8.*"
 pip install --no-deps typing_extensions==4.12.2 psutil==5.9.8
+# h5py: pin to the last release that bundles HDF5 1.14.x and is built against numpy 1.x.
+# Newer h5py (>=3.12) wants HDF5 2.0 symbols and collides with the hdf5.dll that conda
+# already has on PATH -> Isaac Sim dies on startup in GUI mode (see Section 7).
+pip install --no-deps --force-reinstall --no-cache-dir h5py==3.11.0
 ```
 
 ### 3.6 Clone THIS repository and install the extension
@@ -234,6 +240,7 @@ pio device monitor      # serial monitor @ 115200 (pitch / rate / motor commands
 | `KeyError: 'class_name'` in `rsl_rl/algorithms/ppo.py` | Your Isaac Lab is too new (`main`), so it feeds rsl-rl ≥ 4.0 an empty `actor` config. Check out `v2.3.2` (Section 3.5) and re-run `isaaclab.bat --install rsl_rl`. |
 | `PPO.__init__() got an unexpected keyword argument 'optimizer'` | The reverse mismatch: rsl-rl 3.x with an Isaac Lab from `main`. Do **not** downgrade rsl-rl by hand — downgrade Isaac Lab to `v2.3.2` and let it install its own pin. |
 | rsl-rl version error on `train.py` | Install the exact version the script prints (`rsl-rl-lib>=3.0.1`); with Isaac Lab `v2.3.2` this is `3.1.2`. |
+| `ImportError: DLL load failed while importing _errors` (h5py), or Isaac Sim dies with `0xc0000139` — but **only without `--headless`** | h5py's bundled HDF5 clashes with the `hdf5.dll` conda has on PATH (`where hdf5.dll`). Run `pip install --no-deps --force-reinstall --no-cache-dir h5py==3.11.0`; verify with `python -c "import h5py; print(h5py.version.hdf5_version)"` → `1.14.3`. |
 | Isaac Sim crashes / GPU errors | Wrong Isaac Sim version or driver — use 5.1 (or 4.5/5.0) with a supported RTX driver. |
 | PlatformIO: build fails / toolchain not found | Run commands from inside `deploy/` so it reads `platformio.ini`; let the first build install the ESP32 platform. |
 | Build error: `#error "Firmware lap obs 2 chieu ..."` | `policy_weights.h` has `POLICY_OBS_DIM != 2` — re-export a 2-obs `[pitch, rate]` policy, or adapt `assembleObs()` in `src/main.cpp`. |

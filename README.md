@@ -36,10 +36,11 @@ Isaac Lab (train PPO)  ──►  policy.onnx  ──►  policy_weights.h  ─�
 
 ### For training / simulation (`source/`, `scripts/`)
 1. **NVIDIA RTX GPU** + recent driver.
-2. **Isaac Sim 5.1** (also compatible with 4.5 / 5.0) **and Isaac Lab** — full step-by-step pip
-   install (conda + git + Isaac Sim + Isaac Lab) is in **Section 3** below. Python **3.10 or 3.11**.
-3. **rsl-rl-lib ≥ 3.0.1** (usually ships with Isaac Lab; `train.py` prints the exact
-   `pip install` command if the version is wrong).
+2. **Isaac Sim 5.1** (also compatible with 4.5 / 5.0) and **Isaac Lab `v2.3.2`** — full step-by-step
+   pip install (conda + git + Isaac Sim + Isaac Lab) is in **Section 3** below. Python **3.10 or 3.11**.
+3. **rsl-rl-lib 3.1.x** — comes automatically with Isaac Lab `v2.3.2` (which pins `3.1.2`).
+   **4.x / 5.x will not work**: they replaced the single `policy` config with separate
+   `actor` / `critic` models. Pinning Isaac Lab (Section 3.5) is what keeps this correct.
 
 > ⚠️ Everything under `scripts/` and `source/` must be run with the **Isaac Lab Python
 > interpreter**, not a plain system `python`. Either activate the Isaac Lab conda env, or
@@ -111,11 +112,18 @@ isaacsim
 On first launch Isaac Sim compiles shaders/extensions — that first run can take several minutes.
 
 ### 3.5 Install Isaac Lab
+
+> ⚠️ **Check out tag `v2.3.2` — do not use `main`.** Isaac Lab `main` has migrated to the
+> rsl-rl **≥ 4.0** config schema (separate `actor` / `critic` models), which this repo's agent
+> config does not use. Training on `main` fails with `KeyError: 'class_name'`.
+> `v2.3.2` pins `rsl-rl-lib==3.1.2` and supports Isaac Sim 5.1.0.
+
 ```bash
 git clone https://github.com/isaac-sim/IsaacLab.git
 cd IsaacLab
+git checkout -b pin-2.3.2 v2.3.2   # REQUIRED — see the warning above
 # Windows:
-isaaclab.bat --install rsl_rl
+isaaclab.bat --install rsl_rl      # installs the pinned rsl-rl-lib 3.1.2
 
 ## Optional
 isaaclab.bat --install rl_games
@@ -223,7 +231,9 @@ pio device monitor      # serial monitor @ 115200 (pitch / rate / motor commands
 | `ModuleNotFoundError: No module named 'Twip_Rsl_v2'` | You skipped the editable install. Run `python -m pip install -e source/Twip_Rsl_v2` **in the Isaac Lab env**. |
 | `FileNotFoundError: ...TwoWheel.urdf` | Keep the repo layout intact, or set env var `TWIP_URDF=/abs/path/TwoWheel.urdf`. |
 | `list_envs.py` shows nothing / task missing | Import side-effect didn't run — reinstall the extension; make sure you're using the Isaac Lab interpreter. |
-| rsl-rl version error on `train.py` | Install the exact version the script prints (`rsl-rl-lib>=3.0.1`). |
+| `KeyError: 'class_name'` in `rsl_rl/algorithms/ppo.py` | Your Isaac Lab is too new (`main`), so it feeds rsl-rl ≥ 4.0 an empty `actor` config. Check out `v2.3.2` (Section 3.5) and re-run `isaaclab.bat --install rsl_rl`. |
+| `PPO.__init__() got an unexpected keyword argument 'optimizer'` | The reverse mismatch: rsl-rl 3.x with an Isaac Lab from `main`. Do **not** downgrade rsl-rl by hand — downgrade Isaac Lab to `v2.3.2` and let it install its own pin. |
+| rsl-rl version error on `train.py` | Install the exact version the script prints (`rsl-rl-lib>=3.0.1`); with Isaac Lab `v2.3.2` this is `3.1.2`. |
 | Isaac Sim crashes / GPU errors | Wrong Isaac Sim version or driver — use 5.1 (or 4.5/5.0) with a supported RTX driver. |
 | PlatformIO: build fails / toolchain not found | Run commands from inside `deploy/` so it reads `platformio.ini`; let the first build install the ESP32 platform. |
 | Build error: `#error "Firmware lap obs 2 chieu ..."` | `policy_weights.h` has `POLICY_OBS_DIM != 2` — re-export a 2-obs `[pitch, rate]` policy, or adapt `assembleObs()` in `src/main.cpp`. |
